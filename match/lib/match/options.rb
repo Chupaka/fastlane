@@ -62,6 +62,12 @@ module Match
                                      type: Boolean,
                                      default_value: false),
 
+        FastlaneCore::ConfigItem.new(key: :skip_profiles_install,
+                                     env_name: "MATCH_SKIP_PROFILES_INSTALL",
+                                     description: "By default, provisioning profiles will be added to your local machine. Setting this flag will skip this action",
+                                     is_string: false,
+                                     default_value: false),
+
         FastlaneCore::ConfigItem.new(key: :app_identifier,
                                      short_option: "-a",
                                      env_name: "MATCH_APP_IDENTIFIER",

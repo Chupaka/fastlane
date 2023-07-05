@@ -279,7 +279,11 @@ module Match
       end
 
       if Helper.mac?
-        installed_profile = FastlaneCore::ProvisioningProfile.install(profile, keychain_path)
+        if params[:skip_profiles_install]
+          UI.message("Skipping installation of a profile for #{app_identifier} because skip_profiles_install is set.")
+        else
+          installed_profile = FastlaneCore::ProvisioningProfile.install(profile, keychain_path)
+        end
       end
       parsed = FastlaneCore::ProvisioningProfile.parse(profile, keychain_path)
       uuid = parsed["UUID"]

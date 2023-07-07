@@ -2,6 +2,7 @@ require 'fastlane_core/cert_checker'
 require 'fastlane_core/provisioning_profile'
 require 'fastlane_core/print_table'
 require 'spaceship/client'
+require 'parallel'
 require_relative 'generator'
 require_relative 'module'
 require_relative 'table_printer'
@@ -110,7 +111,7 @@ module Match
 
       # Provisioning Profiles
       unless params[:skip_provisioning_profiles]
-        app_identifiers.each do |app_identifier|
+        Parallel.map(app_identifiers, in_threads: 8) do |app_identifier|
           loop do
             break if fetch_provisioning_profile(params: params,
                                         certificate_id: cert_id,

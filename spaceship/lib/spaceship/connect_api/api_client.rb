@@ -102,6 +102,8 @@ module Spaceship
       end
 
       def get(url_or_path, params = nil)
+        puts "Requesting GET #{url_or_path}..."
+
         response = with_asc_retry do
           request(:get) do |req|
             req.url(url_or_path)
@@ -114,6 +116,8 @@ module Spaceship
       end
 
       def post(url_or_path, body, tries: 5)
+        puts "Requesting POST #{url_or_path}..."
+
         response = with_asc_retry(tries) do
           request(:post) do |req|
             req.url(url_or_path)
@@ -125,6 +129,8 @@ module Spaceship
       end
 
       def patch(url_or_path, body)
+        puts "Requesting PATCH #{url_or_path}..."
+
         response = with_asc_retry do
           request(:patch) do |req|
             req.url(url_or_path)
@@ -136,6 +142,8 @@ module Spaceship
       end
 
       def delete(url_or_path, params = nil, body = nil)
+        puts "Requesting DELETE #{url_or_path}..."
+
         response = with_asc_retry do
           request(:delete) do |req|
             req.url(url_or_path)
@@ -189,6 +197,9 @@ module Spaceship
       end
 
       def handle_response(response)
+        puts "X-Rate-Limit: #{response.headers['X-Rate-Limit']}"
+        # puts response.body
+
         if (200...300).cover?(response.status) && (response.body.nil? || response.body.empty?)
           return
         end

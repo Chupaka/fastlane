@@ -2,6 +2,7 @@ require 'fastlane_core/cert_checker'
 require 'fastlane_core/provisioning_profile'
 require 'fastlane_core/print_table'
 require 'spaceship/client'
+require 'parallel'
 require_relative 'generator'
 require_relative 'module'
 require_relative 'table_printer'
@@ -110,7 +111,7 @@ module Match
 
       # Provisioning Profiles
       unless params[:skip_provisioning_profiles]
-        app_identifiers.each do |app_identifier|
+        Parallel.map(app_identifiers, in_threads: 8) do |app_identifier|
           loop do
             break if fetch_provisioning_profile(params: params,
                                         certificate_id: cert_id,
@@ -221,6 +222,9 @@ module Match
     # rubocop:disable Metrics/PerceivedComplexity
     # @return [String] The UUID of the provisioning profile so we can verify it with the Apple Developer Portal
     def fetch_provisioning_profile(params: nil, certificate_id: nil, app_identifier: nil, working_directory: nil)
+      UI.message("START Fetching a profile...")
+      t_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
       prov_type = Match.profile_type_sym(params[:type])
 
       names = [Match::Generator.profile_type_name(prov_type), app_identifier]
@@ -246,9 +250,15 @@ module Match
       profile = profiles.last
       force = params[:force]
 
+      t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+      UI.message("BEFORE should_force_include_all_devices, #{t_curr} secs")
+
       if params[:force_for_new_devices]
         force = should_force_include_all_devices(params: params, prov_type: prov_type, profile: profile, keychain_path: keychain_path) unless force
       end
+
+      t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+      UI.message("AFTER should_force_include_all_devices, #{t_curr} secs")
 
       if params[:include_all_certificates]
         # Clearing specified certificate id which will prevent a profile being created with only one certificate
@@ -278,6 +288,9 @@ module Match
         self.files_to_commit << profile
       end
 
+      t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+      UI.message("BEFORE Skipping installation of a profile, #{t_curr} secs")
+
       if Helper.mac?
         if params[:skip_profiles_install]
           UI.message("Skipping installation of a profile for #{app_identifier} because skip_profiles_install is set.")
@@ -285,6 +298,7 @@ module Match
           installed_profile = FastlaneCore::ProvisioningProfile.install(profile, keychain_path)
         end
       end
+
       parsed = FastlaneCore::ProvisioningProfile.parse(profile, keychain_path)
       uuid = parsed["UUID"]
 
@@ -330,6 +344,9 @@ module Match
                                                                                 platform: params[:platform]),
                              installed_profile)
 
+      t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+      UI.message("FINISH Fetching a profile, #{t_curr} secs")
+
       return uuid
     end
     # rubocop:enable Metrics/PerceivedComplexity
@@ -355,11 +372,20 @@ module Match
     def device_count_different?(profile: nil, keychain_path: nil, platform: nil, include_mac_in_profiles: false)
       return false unless profile
 
+      t_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      UI.message("Measuring 'device_count_different?'...")
+
       parsed = FastlaneCore::ProvisioningProfile.parse(profile, keychain_path)
       uuid = parsed["UUID"]
 
-      all_profiles = Spaceship::ConnectAPI::Profile.all(includes: "devices")
-      portal_profile = all_profiles.detect { |i| i.uuid == uuid }
+      t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+      UI.message("Parsed profile: #{t_curr} secs")
+
+      @all_profiles_devices ||= Spaceship::ConnectAPI::Profile.all(includes: "devices")
+      portal_profile = @all_profiles_devices.detect { |i| i.uuid == uuid }
+
+      t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+      UI.message("Got all profiles: #{t_curr} secs")
 
       if portal_profile
         profile_device_count = portal_profile.fetch_all_devices.count
@@ -388,7 +414,11 @@ module Match
           device_classes += [Spaceship::ConnectAPI::Device::DeviceClass::APPLE_SILICON_MAC]
         end
 
-        devices = Spaceship::ConnectAPI::Device.all
+        t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+        UI.message("Getting devices from spaceship...: #{t_curr} secs")
+
+        @devices_all ||= Spaceship::ConnectAPI::Device.all
+        devices = @devices_all
         unless device_classes.empty?
           devices = devices.select do |device|
             device_classes.include?(device.device_class) && device.enabled?
@@ -396,6 +426,9 @@ module Match
         end
 
         portal_device_count = devices.size
+
+        t_curr = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_start
+        UI.message("Returning: #{t_curr} secs")
 
         return portal_device_count != profile_device_count
       end

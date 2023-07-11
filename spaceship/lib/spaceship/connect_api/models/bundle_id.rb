@@ -41,9 +41,8 @@ module Spaceship
 
       def self.all(client: nil, filter: {}, includes: nil, limit: nil, sort: nil)
         client ||= Spaceship::ConnectAPI
-        puts ".all BundleID: #{filter}, #{includes}"
-        resps = client.get_bundle_ids(filter: filter, includes: includes).all_pages
-        return resps.flat_map(&:to_models)
+        @resps_bundle_ids_memoized ||= client.get_bundle_ids(includes: includes).all_pages
+        return @resps_bundle_ids_memoized.flat_map(&:to_models)
       end
 
       def self.find(identifier, includes: nil, client: nil)

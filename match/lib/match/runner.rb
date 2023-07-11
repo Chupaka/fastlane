@@ -359,7 +359,7 @@ module Match
       portal_profile = all_profiles.detect { |i| i.uuid == uuid }
 
       if portal_profile
-        profile_device_count = portal_profile.fetch_all_devices.count
+        profile_device_count = portal_profile.devices.count
 
         device_classes =
           case platform

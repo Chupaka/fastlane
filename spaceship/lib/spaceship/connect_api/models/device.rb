@@ -53,7 +53,10 @@ module Spaceship
 
       def self.all(client: nil, filter: {}, includes: nil, limit: nil, sort: nil)
         client ||= Spaceship::ConnectAPI
-        resps = client.get_devices(filter: filter, includes: includes).all_pages
+        puts "Initializing @resps_devices_memoized" if @resps_devices_memoized.nil?
+        @resps_devices_memoized ||= {}
+        @resps_devices_memoized[[filter, includes]] ||= client.get_devices(filter: filter, includes: includes).all_pages
+        resps = @resps_devices_memoized[[filter, includes]]
         return resps.flat_map(&:to_models)
       end
 
@@ -85,6 +88,7 @@ module Spaceship
       def self.create(client: nil, name: nil, platform: nil, udid: nil)
         client ||= Spaceship::ConnectAPI
         resp = client.post_device(name: name, platform: platform, udid: udid)
+        @resps_devices_memoized = nil
         return resp.to_models.first
       end
 
@@ -104,6 +108,7 @@ module Spaceship
         new_status = enabled ? Status::ENABLED : Status::DISABLED
 
         resp = client.patch_device(id: existing.id, new_name: new_name, status: new_status)
+        @resps_devices_memoized = nil
         return resp.to_models.first
       end
 
